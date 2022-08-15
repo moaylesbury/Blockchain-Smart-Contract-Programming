@@ -1,0 +1,142 @@
+// specifies compiler version
+pragma solidity >=0.7.0 <0.9.0;
+
+// new contract for coin toss game
+contract CoinToss{
+    
+    //----------------------------------------------------------------------
+    
+    // struct to hold player data
+    struct pdata{
+        uint256 p1_choice;
+        uint256 p2_choice;
+        address payable p1;
+        address payable p2;
+        address payable winner;
+        bool p1_chosen;
+        bool p2_chosen;
+    }
+        
+    uint256 public stake;
+    uint256 public timer;
+    
+    pdata public pd;
+    mapping (address => uint) private balance;
+    
+    constructor () payable{
+        stake = 1 ether;
+    }
+    
+    function joinGame() public {
+        
+        
+        require(pd.p1 == address(0) || pd.p2 == address(0)); // must be a free slot (address(0) is an empty account)
+        
+        if (pd.p1 == address(0)) { // if player 1 slot empty, new player is player 1
+            
+            pd.p1 = payable(msg.sender);
+            
+        }else{                  // else player 2
+            
+            pd.p2 = payable(msg.sender);
+            
+        }
+        
+        timer = block.timestamp + 5 minutes;
+        
+    }
+    
+    function check_timer() public {
+        require(block.timestamp > timer, "timer is not up");
+        restart_game();
+    }
+    
+    function restart_game() private {
+        delete timer;
+        delete balance[pd.p1];
+        delete balance[pd.p2];
+        
+        delete pd.p1;
+        delete pd.p2;
+        delete pd.winner;
+        
+        pd.p1_chosen = false;
+        pd.p2_chosen = false;
+        
+        
+    }
+    
+    function choose(uint256 choice) public  {
+        // choose value between zero and one
+        require(choice == 0 || choice == 1); // choice must be in 0, 1
+        // user must be a player in the game
+        require(msg.sender == pd.p1 || msg.sender == pd.p2, "player must be in game");
+        // player must have payed the stake
+        require(balance[msg.sender] == 1);
+        
+        if (msg.sender == pd.p1){
+            
+            pd.p1_choice = choice;
+            pd.p1_chosen = true;
+            
+        }else{
+            
+            pd.p2_choice = choice;
+            pd.p2_chosen = true;
+            
+        }
+    }
+    
+    function results() public {
+        require((pd.p1_chosen && pd.p2_chosen), "a player has not chosen yet");
+        
+        // commence the game
+        if (pd.p1_choice == pd.p2_choice){
+            // player 1 is the winner
+            
+            balance[pd.p1] = 2;
+            balance[pd.p2] = 0;
+            pd.winner = pd.p1;
+            
+        } else {
+            // player 2 is the winner
+            
+            balance[pd.p1] = 0;
+            balance[pd.p2] = 2;
+            pd.winner = pd.p2;
+            
+        }
+    }
+        
+    function pay_stake() external payable {
+        require(msg.sender == pd.p1 || msg.sender == pd.p2, "player must be in game");
+        
+        require(msg.value == 1 ether, "1 ether required- you  must pay the stake");
+        if (msg.sender == pd.p1){
+            
+            balance[pd.p1] = 1;
+            
+        }else{
+            
+            balance[pd.p2] = 1;
+
+        }
+    }
+    
+    function cash_out() public {
+
+        if (msg.sender == pd.winner) {
+            balance[pd.winner] = 0;
+            pd.winner.transfer(2 ether);
+            restart_game();
+        } 
+        
+    }
+        
+        
+    
+    
+
+    //----------------------------------------------------------------------
+    
+}
